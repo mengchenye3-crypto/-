@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PeriodType {
+  ANNUAL
+  Q1
+  HALF_YEAR
+  Q3
+}
+
+enum SegmentType {
+  product
+  region
+  other
+}
+
+model Company {
+  id            Int            @id @default(autoincrement())
+  symbol        String
+  companyName   String         @map("company_name")
+  market        String
+  exchange      String
+  industry      String?
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  reportPeriods ReportPeriod[]
+
+  @@unique([symbol, market])
+  @@index([symbol])
+  @@index([companyName])
+  @@map("companies")
+}
+
+model ReportPeriod {
+  id                     Int                     @id @default(autoincrement())
+  companyId              Int                     @map("company_id")
+  reportDate             DateTime                @map("report_date") @db.Date
+  fiscalYear             Int                     @map("fiscal_year")
+  fiscalQuarter          Int                     @map("fiscal_quarter")
+  periodType             PeriodType              @map("period_type")
+  source                 String?
+  createdAt              DateTime                @default(now()) @map("created_at")
+  company                Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  balanceSheetItems      BalanceSheetItem[]
+  incomeStatementItems   IncomeStatementItem[]
+  cashflowStatementItems CashflowStatementItem[]
+  operatingSegments      OperatingSegment[]
+
+  @@unique([companyId, reportDate, periodType])
+  @@index([companyId, reportDate])
+  @@map("report_periods")
+}
+
+model BalanceSheetItem {
+  id             Int          @id @default(autoincrement())
+  reportPeriodId Int          @map("report_period_id")
+  itemCode       String       @map("item_code")
+  itemName       String       @map("item_name")
+  itemValue      Decimal?     @map("item_value") @db.Decimal(20, 4)
+  itemUnit       String?      @map("item_unit")
+  parentCode     String?      @map("parent_code")
+  itemLevel      Int          @default(1) @map("item_level")
+  categoryType   String?      @map("category_type")
+  displayOrder   Int          @default(0) @map("display_order")
+  reportPeriod   ReportPeriod @relation(fields: [reportPeriodId], references: [id], onDelete: Cascade)
+
+  @@unique([reportPeriodId, itemCode])
+  @@index([reportPeriodId, displayOrder])
+  @@map("balance_sheet_items")
+}
+
+model IncomeStatementItem {
+  id             Int          @id @default(autoincrement())
+  reportPeriodId Int          @map("report_period_id")
+  itemCode       String       @map("item_code")
+  itemName       String       @map("item_name")
+  itemValue      Decimal?     @map("item_value") @db.Decimal(20, 4)
+  itemUnit       String?      @map("item_unit")
+  parentCode     String?      @map("parent_code")
+  itemLevel      Int          @default(1) @map("item_level")
+  displayOrder   Int          @default(0) @map("display_order")
+  reportPeriod   ReportPeriod @relation(fields: [reportPeriodId], references: [id], onDelete: Cascade)
+
+  @@unique([reportPeriodId, itemCode])
+  @@index([reportPeriodId, displayOrder])
+  @@map("income_statement_items")
+}
+
+model CashflowStatementItem {
+  id             Int          @id @default(autoincrement())
+  reportPeriodId Int          @map("report_period_id")
+  itemCode       String       @map("item_code")
+  itemName       String       @map("item_name")
+  itemValue      Decimal?     @map("item_value") @db.Decimal(20, 4)
+  itemUnit       String?      @map("item_unit")
+  parentCode     String?      @map("parent_code")
+  itemLevel      Int          @default(1) @map("item_level")
+  displayOrder   Int          @default(0) @map("display_order")
+  reportPeriod   ReportPeriod @relation(fields: [reportPeriodId], references: [id], onDelete: Cascade)
+
+  @@unique([reportPeriodId, itemCode])
+  @@index([reportPeriodId, displayOrder])
+  @@map("cashflow_statement_items")
+}
+
+model OperatingSegment {
+  id                Int          @id @default(autoincrement())
+  reportPeriodId    Int          @map("report_period_id")
+  segmentType       SegmentType  @map("segment_type")
+  segmentName       String       @map("segment_name")
+  revenue           Decimal?     @db.Decimal(20, 4)
+  cost              Decimal?     @db.Decimal(20, 4)
+  grossProfit       Decimal?     @map("gross_profit") @db.Decimal(20, 4)
+  grossMargin       Decimal?     @map("gross_margin") @db.Decimal(10, 4)
+  proportionRevenue Decimal?     @map("proportion_revenue") @db.Decimal(10, 4)
+  proportionProfit  Decimal?     @map("proportion_profit") @db.Decimal(10, 4)
+  extraJson         Json?        @map("extra_json")
+  reportPeriod      ReportPeriod @relation(fields: [reportPeriodId], references: [id], onDelete: Cascade)
+
+  @@index([reportPeriodId, segmentType])
+  @@map("operating_segments")
+}
