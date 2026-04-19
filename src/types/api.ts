@@ -26,6 +26,26 @@ export interface CompanyDetail extends CompanyListItem {
   updatedAt: string;
 }
 
+export interface FinancialHighlights {
+  assetsTotal: number | null;
+  liabilitiesTotal: number | null;
+  equityTotal: number | null;
+  revenue: number | null;
+  operatingProfit: number | null;
+  netIncome: number | null;
+  netCashOperating: number | null;
+  netCashInvesting: number | null;
+  netCashFinancing: number | null;
+}
+
+export interface CompanyDetailSummary {
+  company: CompanyDetail;
+  reportPeriods: ReportPeriodSummary[];
+  latestReportPeriod: ReportPeriodSummary | null;
+  financialHighlights: FinancialHighlights | null;
+  operatingSegments: OperatingSegmentItem[];
+}
+
 export interface ReportPeriodSummary {
   id: number;
   companyId: number;

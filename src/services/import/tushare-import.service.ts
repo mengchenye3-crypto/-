@@ -23,6 +23,7 @@ export interface ImportTushareOptions {
   symbol?: string;
   startDate?: string;
   endDate?: string;
+  input?: string;
 }
 
 export interface ImportTushareResult {
@@ -35,6 +36,23 @@ export interface ImportTushareResult {
   cashflowStatementItems: number;
   operatingSegments: number;
 }
+
+export interface ImportBatchItemResult {
+  input: string;
+  status: "success" | "failed";
+  message: string;
+  result?: ImportTushareResult;
+}
+
+export interface ImportBatchSummary {
+  total: number;
+  succeeded: number;
+  failed: number;
+  failedInputs: string[];
+  results: ImportBatchItemResult[];
+}
+
+type ImportCompanyExecutor = (options: ImportTushareOptions) => Promise<ImportTushareResult>;
 
 function inferExchangeFromSymbol(symbol: string): string {
   if (/^(6|9)\d{5}$/.test(symbol)) {
@@ -65,6 +83,27 @@ function normalizeStartDate(startDate?: string): string | undefined {
 
 function normalizeEndDate(endDate?: string): string | undefined {
   return endDate?.replaceAll("-", "");
+}
+
+export function normalizeImportCode(code: string): Pick<ImportTushareOptions, "tsCode" | "symbol"> {
+  const normalized = code.trim().toUpperCase();
+
+  if (/^\d{6}\.(SH|SZ|BJ)$/.test(normalized)) {
+    return { tsCode: normalized };
+  }
+
+  if (/^\d{6}$/.test(normalized)) {
+    return { symbol: normalized };
+  }
+
+  throw new AppError("INVALID_IMPORT_ARGUMENT", `Unsupported import code: ${code}`, 400);
+}
+
+export function parseImportList(content: string): string[] {
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
 }
 
 function getDefaultStartDate(): string {
@@ -220,6 +259,57 @@ export async function importCompanyFromTushare(options: ImportTushareOptions): P
       operatingSegments: operatingSegmentCount
     };
   });
+}
+
+export async function importCompaniesFromTushareWithExecutor(
+  inputs: string[],
+  sharedOptions: Pick<ImportTushareOptions, "startDate" | "endDate">,
+  executeImport: ImportCompanyExecutor
+): Promise<ImportBatchSummary> {
+  const results: ImportBatchItemResult[] = [];
+
+  for (const input of inputs) {
+    try {
+      const normalized = normalizeImportCode(input);
+      const result = await executeImport({
+        ...sharedOptions,
+        ...normalized,
+        input
+      });
+
+      results.push({
+        input,
+        status: "success",
+        message: "Imported successfully",
+        result
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      results.push({
+        input,
+        status: "failed",
+        message
+      });
+    }
+  }
+
+  const succeeded = results.filter((item) => item.status === "success").length;
+  const failedItems = results.filter((item) => item.status === "failed");
+
+  return {
+    total: results.length,
+    succeeded,
+    failed: failedItems.length,
+    failedInputs: failedItems.map((item) => item.input),
+    results
+  };
+}
+
+export async function importCompaniesFromTushare(
+  inputs: string[],
+  sharedOptions: Pick<ImportTushareOptions, "startDate" | "endDate">
+): Promise<ImportBatchSummary> {
+  return importCompaniesFromTushareWithExecutor(inputs, sharedOptions, importCompanyFromTushare);
 }
 
 async function upsertReportPeriod(

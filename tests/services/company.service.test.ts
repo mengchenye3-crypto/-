@@ -10,6 +10,7 @@ vi.mock("../../src/lib/prisma", () => ({
 import {
   getBalanceSheet,
   getCompanyDetail,
+  getCompanyDetailSummary,
   getOperatingSegments,
   listCompanies,
   listCompanyReportPeriods
@@ -244,5 +245,90 @@ describe("company.service", () => {
         extraJson: { notes: "核心产品" }
       }
     ]);
+  });
+
+  it("builds company detail summary from latest report period", async () => {
+    mockPrisma.company.findUnique
+      .mockResolvedValueOnce({
+        id: 1,
+        symbol: "600519",
+        companyName: "贵州茅台股份有限公司",
+        market: "CN-A",
+        exchange: "SSE",
+        industry: "白酒",
+        createdAt: new Date("2024-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2024-01-02T00:00:00.000Z")
+      })
+      .mockResolvedValueOnce({ id: 1 });
+
+    mockPrisma.reportPeriod.findMany.mockResolvedValue([
+      {
+        ...createReportPeriod(2),
+        reportDate: new Date("2024-03-31T00:00:00.000Z"),
+        fiscalYear: 2024,
+        fiscalQuarter: 1,
+        periodType: PeriodType.Q1
+      }
+    ]);
+
+    mockPrisma.reportPeriod.findUnique.mockResolvedValue({
+      ...createReportPeriod(2),
+      reportDate: new Date("2024-03-31T00:00:00.000Z"),
+      fiscalYear: 2024,
+      fiscalQuarter: 1,
+      periodType: PeriodType.Q1
+    });
+
+    mockPrisma.balanceSheetItem.findMany.mockResolvedValue([
+      {
+        id: 1,
+        reportPeriodId: 2,
+        itemCode: "assets_total",
+        itemName: "资产总计",
+        itemValue: new Prisma.Decimal("100"),
+        itemUnit: "CNY",
+        parentCode: null,
+        itemLevel: 1,
+        categoryType: "asset",
+        displayOrder: 10
+      }
+    ]);
+    mockPrisma.incomeStatementItem.findMany.mockResolvedValue([
+      {
+        id: 2,
+        reportPeriodId: 2,
+        itemCode: "revenue",
+        itemName: "营业总收入",
+        itemValue: new Prisma.Decimal("80"),
+        itemUnit: "CNY",
+        parentCode: null,
+        itemLevel: 1,
+        displayOrder: 10
+      }
+    ]);
+    mockPrisma.cashflowStatementItem.findMany.mockResolvedValue([
+      {
+        id: 3,
+        reportPeriodId: 2,
+        itemCode: "net_cash_operating",
+        itemName: "经营活动产生的现金流量净额",
+        itemValue: new Prisma.Decimal("50"),
+        itemUnit: "CNY",
+        parentCode: null,
+        itemLevel: 1,
+        displayOrder: 10
+      }
+    ]);
+    mockPrisma.operatingSegment.findMany.mockResolvedValue([]);
+
+    const result = await getCompanyDetailSummary(1);
+
+    expect(result.latestReportPeriod?.id).toBe(2);
+    expect(result.financialHighlights).toMatchObject({
+      assetsTotal: 100,
+      revenue: 80,
+      netCashOperating: 50
+    });
+    expect(result.operatingSegments).toEqual([]);
   });
 });

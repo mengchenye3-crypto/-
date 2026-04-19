@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A股公司分析软件 V1</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <p class="eyebrow">A-share Company Research</p>
+          <h1>公司列表</h1>
+          <p class="muted">当前页面直接消费现有后端只读接口，不包含任何写操作。</p>
+        </div>
+
+        <form id="search-form" class="search-form">
+          <input id="search-input" name="q" type="search" placeholder="搜索代码或公司名称" />
+          <button type="submit">搜索</button>
+        </form>
+
+        <div id="company-meta" class="sidebar-meta">正在加载公司列表...</div>
+        <div id="company-list" class="company-list" aria-live="polite"></div>
+      </aside>
+
+      <main class="content">
+        <section id="hero-empty" class="hero-card">
+          <p class="eyebrow">Company Detail</p>
+          <h2>选择一家公司开始查看</h2>
+          <p class="muted">
+            页面会自动拉取公司基础信息、可用报告期、最新期财报摘要，以及三大报表与经营分部数据。
+          </p>
+        </section>
+
+        <section id="company-detail" class="hidden">
+          <div class="hero-card hero-surface">
+            <div class="hero-header">
+              <div>
+                <p id="company-symbol" class="eyebrow"></p>
+                <h2 id="company-name"></h2>
+                <p id="company-tags" class="muted"></p>
+              </div>
+              <div class="hero-badge">只读视图</div>
+            </div>
+            <div id="latest-period-card" class="period-card"></div>
+          </div>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <h3>最新期财报摘要</h3>
+              <p class="muted">来自 `detail-summary` 聚合接口。</p>
+            </div>
+            <div id="highlight-grid" class="highlight-grid"></div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <h3>报告期切换</h3>
+              <p class="muted">切换后自动刷新三大报表与经营分部数据。</p>
+            </div>
+            <div id="report-period-list" class="period-list"></div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <h3>财务与经营视图</h3>
+              <p id="active-period-label" class="muted"></p>
+            </div>
+
+            <div class="tab-bar" id="tab-bar">
+              <button data-tab="balance-sheet" class="is-active" type="button">资产负债表</button>
+              <button data-tab="income-statement" type="button">利润表</button>
+              <button data-tab="cashflow-statement" type="button">现金流量表</button>
+              <button data-tab="operating-segments" type="button">经营分部</button>
+            </div>
+
+            <div class="table-card">
+              <table>
+                <thead id="table-head"></thead>
+                <tbody id="table-body"></tbody>
+              </table>
+              <div id="table-empty" class="table-empty hidden">当前报告期暂无可展示数据。</div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <template id="company-item-template">
+      <button type="button" class="company-item">
+        <span class="company-item-symbol"></span>
+        <span class="company-item-name"></span>
+        <span class="company-item-meta"></span>
+      </button>
+    </template>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

@@ -4,7 +4,9 @@ import { prisma } from "../lib/prisma";
 import { AppError } from "../middleware/error-handler";
 import {
   CompanyDetail,
+  CompanyDetailSummary,
   CompanyListItem,
+  FinancialHighlights,
   OperatingSegmentItem,
   OperatingSegmentsResponse,
   PaginatedCompanies,
@@ -236,5 +238,52 @@ export async function getOperatingSegments(reportPeriodId: number): Promise<Oper
   return {
     reportPeriod,
     items: mappedItems
+  };
+}
+
+function extractStatementValue(items: StatementItem[], itemCode: string): number | null {
+  return items.find((item) => item.itemCode === itemCode)?.itemValue ?? null;
+}
+
+export async function getCompanyDetailSummary(companyId: number): Promise<CompanyDetailSummary> {
+  const company = await getCompanyDetail(companyId);
+  const reportPeriods = await listCompanyReportPeriods(companyId);
+  const latestReportPeriod = reportPeriods[0] ?? null;
+
+  if (!latestReportPeriod) {
+    return {
+      company,
+      reportPeriods,
+      latestReportPeriod: null,
+      financialHighlights: null,
+      operatingSegments: []
+    };
+  }
+
+  const [balanceSheet, incomeStatement, cashflowStatement, operatingSegments] = await Promise.all([
+    getBalanceSheet(latestReportPeriod.id),
+    getIncomeStatement(latestReportPeriod.id),
+    getCashflowStatement(latestReportPeriod.id),
+    getOperatingSegments(latestReportPeriod.id)
+  ]);
+
+  const financialHighlights: FinancialHighlights = {
+    assetsTotal: extractStatementValue(balanceSheet.items, "assets_total"),
+    liabilitiesTotal: extractStatementValue(balanceSheet.items, "liabilities_total"),
+    equityTotal: extractStatementValue(balanceSheet.items, "equity_total"),
+    revenue: extractStatementValue(incomeStatement.items, "revenue"),
+    operatingProfit: extractStatementValue(incomeStatement.items, "operating_profit"),
+    netIncome: extractStatementValue(incomeStatement.items, "net_income"),
+    netCashOperating: extractStatementValue(cashflowStatement.items, "net_cash_operating"),
+    netCashInvesting: extractStatementValue(cashflowStatement.items, "net_cash_investing"),
+    netCashFinancing: extractStatementValue(cashflowStatement.items, "net_cash_financing")
+  };
+
+  return {
+    company,
+    reportPeriods,
+    latestReportPeriod,
+    financialHighlights,
+    operatingSegments: operatingSegments.items
   };
 }

@@ -1,10 +1,19 @@
 import { Request, Response } from "express";
 
-import { ApiSuccessResponse, CompanyDetail, OperatingSegmentsResponse, PaginatedCompanies, ReportPeriodSummary, StatementResponse } from "../types/api";
+import {
+  ApiSuccessResponse,
+  CompanyDetail,
+  CompanyDetailSummary,
+  OperatingSegmentsResponse,
+  PaginatedCompanies,
+  ReportPeriodSummary,
+  StatementResponse
+} from "../types/api";
 import {
   getBalanceSheet,
   getCashflowStatement,
   getCompanyDetail,
+  getCompanyDetailSummary,
   getIncomeStatement,
   getOperatingSegments,
   listCompanies,
@@ -40,6 +49,15 @@ export async function listCompanyReportPeriodsHandler(
 ): Promise<void> {
   const companyId = parseIdParam(requireSingleParam(req.params.companyId, "companyId"), "companyId");
   const result = await listCompanyReportPeriods(companyId);
+  sendSuccess(res, result);
+}
+
+export async function getCompanyDetailSummaryHandler(
+  req: Request,
+  res: Response<ApiSuccessResponse<CompanyDetailSummary>>
+): Promise<void> {
+  const companyId = parseIdParam(requireSingleParam(req.params.companyId, "companyId"), "companyId");
+  const result = await getCompanyDetailSummary(companyId);
   sendSuccess(res, result);
 }
 

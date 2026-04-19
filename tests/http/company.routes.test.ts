@@ -8,6 +8,7 @@ const serviceMocks = vi.hoisted(() => ({
   getBalanceSheet: vi.fn(),
   getIncomeStatement: vi.fn(),
   getCashflowStatement: vi.fn(),
+  getCompanyDetailSummary: vi.fn(),
   getOperatingSegments: vi.fn()
 }));
 
@@ -19,6 +20,13 @@ import { AppError } from "../../src/middleware/error-handler";
 describe("company routes", () => {
   beforeEach(() => {
     Object.values(serviceMocks).forEach((mockFn) => mockFn.mockReset());
+  });
+
+  it("serves the read-only app shell", async () => {
+    const response = await request(app).get("/");
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain("Company Detail");
   });
 
   it("returns health status", async () => {
@@ -124,6 +132,30 @@ describe("company routes", () => {
 
     expect(response.status).toBe(200);
     expect(serviceMocks.listCompanyReportPeriods).toHaveBeenCalledWith(1);
+  });
+
+  it("returns company detail summary payload", async () => {
+    serviceMocks.getCompanyDetailSummary.mockResolvedValue({
+      company: {
+        id: 1,
+        symbol: "600519",
+        companyName: "贵州茅台股份有限公司",
+        market: "CN-A",
+        exchange: "SSE",
+        industry: "白酒",
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-02T00:00:00.000Z"
+      },
+      reportPeriods: [],
+      latestReportPeriod: null,
+      financialHighlights: null,
+      operatingSegments: []
+    });
+
+    const response = await request(app).get("/api/companies/1/detail-summary");
+
+    expect(response.status).toBe(200);
+    expect(serviceMocks.getCompanyDetailSummary).toHaveBeenCalledWith(1);
   });
 
   it("returns balance sheet payload", async () => {

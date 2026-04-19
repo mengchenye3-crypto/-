@@ -1,44 +1,59 @@
 # 最小测试清单
 
-本文档用于验证当前 V1 后端基础是否达到可用标准。
-
-建议测试顺序：
-
-1. 环境与安装
-2. 数据库迁移与 seed
-3. 服务启动
-4. 接口 smoke test
-5. 边界与错误处理
-6. 数据约束与排序
+本文档用于验证当前 V1 是否达到“真实可运行、真实可导入、真实可读取、可直接打开只读页面”的状态。
 
 ## 1. 环境与安装
 
-- [ ] 本机已安装 Node.js 20+
-- [ ] 本机已安装并启动 PostgreSQL
-- [ ] 已创建数据库 `company_research_tool`
+- [ ] 已安装 Node.js 20+
+- [ ] 已安装并启动 PostgreSQL
+- [ ] 已创建开发库 `company_research_tool`
 - [ ] 已复制环境文件：`Copy-Item .env.example .env`
-- [ ] `.env` 中的 `DATABASE_URL` 可正常连接数据库
-- [ ] 执行 `npm install` 成功
-- [ ] 执行 `npm run prisma:generate` 成功
-- [ ] 执行 `npm run typecheck` 成功
-- [ ] 执行 `npm run build` 成功
+- [ ] `.env` 中的 `DATABASE_URL` 可连接开发库
+- [ ] 已配置 `TUSHARE_TOKEN`
+- [ ] `py -3 -c "import tushare"` 可成功执行
+- [ ] `npm install` 成功
+- [ ] `npm run prisma:generate` 成功
+- [ ] `npm run typecheck` 成功
+- [ ] `npm run build` 成功
 
-## 2. 数据库迁移与 Seed
+## 2. 数据库初始化
 
-- [ ] 执行 `npm run prisma:migrate` 成功
-- [ ] 执行 `npm run prisma:seed` 成功
-- [ ] 数据库中存在 6 张业务主表
-- [ ] `companies` 中至少有 1 条演示公司数据
-- [ ] `report_periods` 中至少有 2 条报告期数据
-- [ ] 三大报表表中存在演示科目数据
-- [ ] `operating_segments` 中存在演示分部数据
+- [ ] `npm run prisma:migrate` 成功
+- [ ] 开发库中存在 6 张业务主表
+- [ ] 测试库 `company_research_tool_test` 已创建
+- [ ] `npm run test:integration` 成功
+- [ ] `npm run test:all` 成功
 
-## 3. 服务启动
+## 3. 单公司真实导入
+
+- [ ] 执行 `npm run import:tushare -- --ts-code 600519.SH` 成功
+- [ ] 返回结果包含：
+  - `companyId`
+  - `tsCode`
+  - `importedReportPeriods`
+  - 各报表与经营分部写入条数
+- [ ] 二次重复执行同一命令仍然成功
+- [ ] 重复导入后没有重复报告期
+- [ ] 重复导入后报表与经营分部按报告期覆盖，不累积重复行
+
+## 4. 批量导入
+
+- [ ] 执行 `npm run import:tushare -- --file examples/import-list.txt` 成功
+- [ ] 输出每个公司单独结果
+- [ ] 输出最终汇总：
+  - `total`
+  - `succeeded`
+  - `failed`
+  - `failedInputs`
+- [ ] 非法代码不会中断整个批量任务
+- [ ] 导入后 `companies` 数量增加
+- [ ] 新增公司可通过现有 API 查询
+
+## 5. 服务启动
 
 - [ ] 执行 `npm run dev` 成功
-- [ ] 终端出现服务启动日志
-- [ ] `GET /health` 返回 `200`
-- [ ] `/health` 返回结构为：
+- [ ] `/health` 返回 `200`
+- [ ] `/health` 返回：
 
 ```json
 {
@@ -49,142 +64,62 @@
 }
 ```
 
-## 4. 接口 Smoke Test
-
-### 4.1 公司列表 / 搜索
+## 6. 只读 API 验收
 
 - [ ] `GET /api/companies` 返回 `200`
-- [ ] 返回结构包含：`items`、`total`、`page`、`pageSize`
-- [ ] `items` 为数组
-- [ ] 默认按 `symbol asc` 排序
-- [ ] `GET /api/companies?q=茅台` 能返回命中结果
+- [ ] `GET /api/companies/:companyId` 返回 `200`
+- [ ] `GET /api/companies/:companyId/report-periods` 返回 `200`
+- [ ] `GET /api/companies/:companyId/detail-summary` 返回 `200`
+- [ ] `GET /api/report-periods/:reportPeriodId/balance-sheet` 返回 `200`
+- [ ] `GET /api/report-periods/:reportPeriodId/income-statement` 返回 `200`
+- [ ] `GET /api/report-periods/:reportPeriodId/cashflow-statement` 返回 `200`
+- [ ] `GET /api/report-periods/:reportPeriodId/operating-segments` 返回 `200`
 
-### 4.2 公司详情
+## 7. 只读页面验收
 
-- [ ] `GET /api/companies/1` 返回 `200`
-- [ ] 返回结构包含：`id`、`symbol`、`companyName`、`market`、`exchange`
-- [ ] 返回 `createdAt`、`updatedAt` 为字符串
+- [ ] 打开 [http://localhost:3000](http://localhost:3000) 成功
+- [ ] 页面能展示公司列表
+- [ ] 搜索框能按代码或名称过滤公司
+- [ ] 点击公司后能展示公司详情
+- [ ] 页面能展示：
+  - 公司基础信息
+  - 报告期列表
+  - 最新期财报摘要
+  - 三大报表
+  - 经营分部
+- [ ] 报告期切换后，三大报表和经营分部同步刷新
+- [ ] 若当前报告期没有经营分部数据，页面正常显示“暂无数据”而不是报错
 
-### 4.3 报告期列表
+## 8. 聚合接口验收
 
-- [ ] `GET /api/companies/1/report-periods` 返回 `200`
-- [ ] 返回数组项包含：`reportDate`、`fiscalYear`、`fiscalQuarter`、`periodType`
-- [ ] 报告期按 `reportDate desc` 排序
+- [ ] `detail-summary` 返回：
+  - 公司基础信息
+  - 报告期列表
+  - 最新报告期
+  - 最新期财报摘要
+  - 最新一期经营分部摘要
+- [ ] 若最新一期无经营分部，返回空数组而不是报错
+- [ ] 非法 `companyId` 返回 `400`
+- [ ] 不存在公司返回 `404`
 
-### 4.4 资产负债表
-
-- [ ] `GET /api/report-periods/1/balance-sheet` 返回 `200`
-- [ ] 返回结构包含：`reportPeriod`、`items`
-- [ ] `items` 按 `displayOrder asc` 排序
-- [ ] 资产负债表项包含 `categoryType`
-
-### 4.5 利润表
-
-- [ ] `GET /api/report-periods/1/income-statement` 返回 `200`
-- [ ] 返回结构包含：`reportPeriod`、`items`
-- [ ] `items` 按 `displayOrder asc` 排序
-
-### 4.6 现金流量表
-
-- [ ] `GET /api/report-periods/1/cashflow-statement` 返回 `200`
-- [ ] 返回结构包含：`reportPeriod`、`items`
-- [ ] `items` 按 `displayOrder asc` 排序
-
-### 4.7 经营分部
-
-- [ ] `GET /api/report-periods/1/operating-segments` 返回 `200`
-- [ ] 返回结构包含：`reportPeriod`、`items`
-- [ ] `items` 中包含：`segmentType`、`segmentName`、`revenue`、`cost`
-- [ ] `segmentType` 只出现 `product`、`region`、`other`
-
-## 5. 边界与错误处理
-
-### 5.1 非法参数
+## 9. 边界与错误处理
 
 - [ ] `GET /api/companies/abc` 返回 `400`
 - [ ] `GET /api/report-periods/abc/balance-sheet` 返回 `400`
 - [ ] `GET /api/companies?page=0` 返回 `400`
 - [ ] `GET /api/companies?pageSize=101` 返回 `400`
+- [ ] 不存在公司返回 `404`
+- [ ] 不存在报告期返回 `404`
+- [ ] 未知路由返回 `404`
+- [ ] 空报表或空分部返回空数组，不返回 `500`
 
-### 5.2 资源不存在
+## 10. 数据一致性
 
-- [ ] `GET /api/companies/999999` 返回 `404`
-- [ ] `GET /api/companies/999999/report-periods` 返回 `404`
-- [ ] `GET /api/report-periods/999999/balance-sheet` 返回 `404`
-- [ ] `GET /api/report-periods/999999/income-statement` 返回 `404`
-- [ ] `GET /api/report-periods/999999/cashflow-statement` 返回 `404`
-- [ ] `GET /api/report-periods/999999/operating-segments` 返回 `404`
-
-### 5.3 空数据
-
-- [ ] 当报告期存在但某类报表无数据时，接口返回 `200`
-- [ ] 无数据时 `items` 返回空数组 `[]`
-- [ ] 不会因为空数据抛出 `500`
-
-### 5.4 路由不存在
-
-- [ ] `GET /api/not-found` 返回 `404`
-
-## 6. 数据结构一致性
-
-- [ ] 所有成功响应都包含 `success: true`
-- [ ] 所有失败响应都包含 `success: false`
-- [ ] 失败响应都包含 `error.code` 和 `error.message`
-- [ ] 三大报表中的 `itemValue` 类型一致，为 `number | null`
-- [ ] 经营分部中的数值字段类型一致，为 `number | null`
-- [ ] `reportDate` 格式统一为 `YYYY-MM-DD`
-
-## 7. 数据库约束验证
-
-以下检查建议使用 Prisma Studio、数据库客户端或手动插入测试数据进行：
-
-- [ ] 重复插入相同 `(symbol, market)` 会失败
-- [ ] 重复插入相同 `(company_id, report_date, period_type)` 会失败
-- [ ] 重复插入相同 `(report_period_id, item_code)` 到资产负债表会失败
-- [ ] 重复插入相同 `(report_period_id, item_code)` 到利润表会失败
-- [ ] 重复插入相同 `(report_period_id, item_code)` 到现金流量表会失败
-- [ ] 删除公司后，不会留下孤立的报告期数据
-- [ ] 删除报告期后，不会留下孤立的报表行或经营分部数据
-
-## 8. 推荐命令
-
-准备环境：
-
-```powershell
-Copy-Item .env.example .env
-npm install
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:seed
-```
-
-启动服务：
-
-```powershell
-npm run dev
-```
-
-运行 smoke test：
-
-```powershell
-npm run smoke:test
-```
-
-## 9. 真实 PostgreSQL 集成测试
-
-- [ ] 已创建测试库 `company_research_tool_test`
-- [ ] 已复制测试环境文件：`Copy-Item .env.test.example .env.test`
-- [ ] `.env.test` 中的 `TEST_DATABASE_URL` 可正常连接测试库
-- [ ] 执行 `npm run test:integration` 成功
-- [ ] 执行 `npm run test:all` 成功
-
-集成测试应覆盖：
-
-- [ ] migration 能在测试库执行
-- [ ] seed 能在测试库写入演示数据
-- [ ] 7 个只读接口能在真实 PostgreSQL 上返回正确结构
-- [ ] `(symbol, market)` 唯一约束被验证
-- [ ] `(company_id, report_date, period_type)` 唯一约束被验证
-- [ ] `(report_period_id, item_code)` 唯一约束被验证
-- [ ] 删除公司后无孤立报告期和报表行
-- [ ] 删除报告期后无孤立报表行和经营分部
+- [ ] 所有成功响应都有 `success: true`
+- [ ] 所有错误响应都有 `success: false`
+- [ ] 数值字段保持 `number | null`
+- [ ] `reportDate` 保持 `YYYY-MM-DD`
+- [ ] `segmentType` 仅出现：
+  - `product`
+  - `region`
+  - `other`
